@@ -14,14 +14,21 @@ const (
 	tokenFile = "token_file"
 )
 
-func main() {
+func init() {
+	glog.Info("init()")
+
 	flag.Parse()
-	glog.Info("main(): start")
+}
+
+func main() {
+	glog.Info("main()")
 
 	postRainImg()
 }
 
 func postRainImg() {
+	glog.Info("postRainImg()")
+
 	api := slack.New(getToken())
 	eventCh := make(chan slack.SlackEvent)
 
@@ -38,6 +45,8 @@ func postRainImg() {
 		switch event.Data.(type) {
 		case *slack.MessageEvent:
 			msg := event.Data.(*slack.MessageEvent)
+			glog.Info("channel id: ", msg.ChannelId)
+			glog.Info("text: ", msg.Text)
 
 			match, _ := regexp.MatchString("雨", msg.Text)
 			if match {
@@ -52,6 +61,9 @@ func postRainImg() {
 				p.IconEmoji = ":rainbow:"
 				api.PostMessage("#your_ch", f.URL, p)
 			}
+		case slack.LatencyReport:
+			latency := event.Data.(slack.LatencyReport)
+			glog.Info("pong latency: ", latency.Value)
 		}
 	}
 }
