@@ -63,7 +63,7 @@ func postRainImg() {
 			}
 		case slack.LatencyReport:
 			latency := event.Data.(slack.LatencyReport)
-			glog.Info("pong latency: ", latency.Value)
+			glog.Info("ping latency: ", latency.Value)
 		}
 	}
 }
