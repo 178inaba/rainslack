@@ -3,16 +3,29 @@ package main
 import (
 	"flag"
 	"github.com/178inaba/rainimg"
+	"github.com/BurntSushi/toml"
 	"github.com/golang/glog"
 	"github.com/nlopes/slack"
-	"io/ioutil"
 	"regexp"
 	"time"
 )
 
 const (
-	tokenFile = "token_file"
+	settingToml = "setting.toml"
 )
+
+var (
+	s Setting
+)
+
+type Setting struct {
+	Token `toml:"token"`
+}
+
+type Token struct {
+	User string `toml:"user"`
+	Bot  string `toml:"bot"`
+}
 
 func init() {
 	glog.Info("init()")
@@ -23,22 +36,39 @@ func init() {
 func main() {
 	glog.Info("main()")
 
+	loadSetting()
+
 	postRainImg()
+}
+
+func loadSetting() {
+	_, err := toml.DecodeFile(settingToml, &s)
+	if err != nil {
+		glog.Error("load error: ", err)
+	}
 }
 
 func postRainImg() {
 	glog.Info("postRainImg()")
 
-	api := slack.New(getToken())
+	botApi := slack.New(s.Token.Bot)
+	sendCh := make(chan slack.OutgoingMessage)
 	eventCh := make(chan slack.SlackEvent)
 
-	ws, err := api.StartRTM("", "https://slack.com/")
+	ws, err := botApi.StartRTM("", "https://slack.com/")
 	if err != nil {
 		glog.Error(err)
+		return
 	}
 
 	go ws.HandleIncomingEvents(eventCh)
 	go ws.Keepalive(20 * time.Second)
+	go func(ws *slack.SlackWS, sendCh <-chan slack.OutgoingMessage) {
+		for {
+			om := <-sendCh
+			ws.SendMessage(&om)
+		}
+	}(ws, sendCh)
 
 	for {
 		event := <-eventCh
@@ -50,16 +80,8 @@ func postRainImg() {
 
 			match, _ := regexp.MatchString("雨", msg.Text)
 			if match {
-				// file upload
-				var fup slack.FileUploadParameters
-				fup.File = rainimg.GetImgPath()
-				f, _ := api.UploadFile(fup)
-
-				// post message
-				p := slack.NewPostMessageParameters()
-				p.Username = "now rain"
-				p.IconEmoji = ":rainbow:"
-				api.PostMessage("#your_ch", f.URL, p)
+				f, _ := rainImgUpload()
+				sendCh <- *ws.NewOutgoingMessage(f.URL, msg.ChannelId)
 			}
 		case slack.LatencyReport:
 			latency := event.Data.(slack.LatencyReport)
@@ -68,7 +90,11 @@ func postRainImg() {
 	}
 }
 
-func getToken() string {
-	token, _ := ioutil.ReadFile(tokenFile)
-	return string(token)
+func rainImgUpload() (*slack.File, error) {
+	glog.Info("rainImgUpload()")
+
+	var fup slack.FileUploadParameters
+	fup.File = rainimg.GetImgPath()
+
+	return slack.New(s.Token.User).UploadFile(fup)
 }
