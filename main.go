@@ -131,6 +131,7 @@ func rainImgUpload() slack.File {
 	// already uploaded check
 	file, ok := fileMap[fileName]
 	if ok {
+		glog.Info("already uploaded: ", file.Name)
 		return file
 	}
 
