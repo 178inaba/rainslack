@@ -1,3 +1,3 @@
-FROM golang:1.4.2-onbuild
+FROM golang:onbuild
 
 CMD ["app", "-logtostderr", "-stderrthreshold=INFO"]
