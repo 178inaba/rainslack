@@ -142,5 +142,8 @@ func rainImgUpload() slack.File {
 	upFile, _ := api.UploadFile(fup)
 	glog.Info("upload file: ", upFile.Name)
 
+	// add file list
+	fileMap[upFile.Name] = *upFile
+
 	return *upFile
 }
