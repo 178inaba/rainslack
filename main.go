@@ -6,7 +6,9 @@ import (
 	"github.com/BurntSushi/toml"
 	"github.com/golang/glog"
 	"github.com/nlopes/slack"
+	"path/filepath"
 	"regexp"
+	"sync"
 	"time"
 )
 
@@ -15,7 +17,11 @@ const (
 )
 
 var (
-	s Setting
+	s   Setting
+	api *slack.Slack
+	o   sync.Once
+
+	fileMap = make(map[string]slack.File)
 )
 
 type Setting struct {
@@ -37,14 +43,37 @@ func main() {
 	glog.Info("main()")
 
 	loadSetting()
+	api = slack.New(s.Token.User)
 
+	getFileList()
 	postRainImg()
 }
 
 func loadSetting() {
+	glog.Info("loadSetting()")
+
 	_, err := toml.DecodeFile(settingToml, &s)
 	if err != nil {
 		glog.Error("load error: ", err)
+	}
+}
+
+func getFileList() {
+	glog.Info("getFileList()")
+
+	info, _ := api.AuthTest()
+	glog.Info("User: ", info.User)
+	glog.Info("UserId: ", info.UserId)
+
+	searchParam := slack.NewGetFilesParameters()
+	searchParam.UserId = info.UserId
+
+	files, _, _ := api.GetFiles(searchParam)
+
+	glog.Info("filename list:")
+	for _, file := range files {
+		fileMap[file.Name] = file
+		glog.Info(file.Name)
 	}
 }
 
@@ -80,7 +109,7 @@ func postRainImg() {
 
 			match, _ := regexp.MatchString("雨", msg.Text)
 			if match {
-				f, _ := rainImgUpload()
+				f := rainImgUpload()
 				sendCh <- *ws.NewOutgoingMessage(f.URL, msg.ChannelId)
 			}
 		case slack.LatencyReport:
@@ -90,11 +119,28 @@ func postRainImg() {
 	}
 }
 
-func rainImgUpload() (*slack.File, error) {
+func rainImgUpload() slack.File {
 	glog.Info("rainImgUpload()")
 
-	var fup slack.FileUploadParameters
-	fup.File = rainimg.GetImgPath()
+	// create image
+	fPath := rainimg.GetImgPath()
 
-	return slack.New(s.Token.User).UploadFile(fup)
+	// get filename
+	fileName := filepath.Base(fPath)
+
+	// already uploaded check
+	file, ok := fileMap[fileName]
+	if ok {
+		return file
+	}
+
+	// file up param
+	var fup slack.FileUploadParameters
+	fup.File = fPath
+
+	// upload
+	upFile, _ := api.UploadFile(fup)
+	glog.Info("upload file: ", upFile.Name)
+
+	return *upFile
 }
