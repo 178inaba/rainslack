@@ -2,14 +2,16 @@ package main
 
 import (
 	"flag"
-	"github.com/178inaba/rainimg"
-	"github.com/BurntSushi/toml"
-	"github.com/golang/glog"
-	"github.com/nlopes/slack"
+	"os"
 	"path/filepath"
 	"regexp"
 	"sync"
 	"time"
+
+	"github.com/178inaba/rainimg"
+	"github.com/BurntSushi/toml"
+	"github.com/golang/glog"
+	"github.com/nlopes/slack"
 )
 
 const (
@@ -17,20 +19,20 @@ const (
 )
 
 var (
-	s   Setting
+	s   setting
 	api *slack.Slack
 	o   sync.Once
 
 	fileMap = make(map[string]slack.File)
 )
 
-type Setting struct {
-	Token `toml:"token"`
+type setting struct {
+	token `toml:"token"`
 }
 
-type Token struct {
-	User string `toml:"user"`
-	Bot  string `toml:"bot"`
+type token struct {
+	user string `toml:"user"`
+	bot  string `toml:"bot"`
 }
 
 func init() {
@@ -43,9 +45,14 @@ func main() {
 	glog.Info("main()")
 
 	loadSetting()
-	api = slack.New(s.Token.User)
+	api = slack.New(s.token.user)
 
-	getFileList()
+	userID, err := getUserID()
+	if err != nil {
+		os.Exit(1)
+	}
+
+	getFileList(userID)
 	postRainImg()
 }
 
@@ -58,15 +65,26 @@ func loadSetting() {
 	}
 }
 
-func getFileList() {
-	glog.Info("getFileList()")
+func getUserID() (string, error) {
+	glog.Info("getUserID()")
 
-	info, _ := api.AuthTest()
+	info, err := api.AuthTest()
+	if err != nil {
+		glog.Error("AuthTest Error: ", err)
+		return "", err
+	}
+
 	glog.Info("User: ", info.User)
 	glog.Info("UserId: ", info.UserId)
 
+	return info.UserId, nil
+}
+
+func getFileList(userID string) {
+	glog.Info("getFileList()")
+
 	searchParam := slack.NewGetFilesParameters()
-	searchParam.UserId = info.UserId
+	searchParam.UserId = userID
 
 	files, _, _ := api.GetFiles(searchParam)
 
@@ -80,11 +98,11 @@ func getFileList() {
 func postRainImg() {
 	glog.Info("postRainImg()")
 
-	botApi := slack.New(s.Token.Bot)
+	botAPI := slack.New(s.token.bot)
 	sendCh := make(chan slack.OutgoingMessage)
 	eventCh := make(chan slack.SlackEvent)
 
-	ws, err := botApi.StartRTM("", "https://slack.com/")
+	ws, err := botAPI.StartRTM("", "https://slack.com/")
 	if err != nil {
 		glog.Error(err)
 		return
