@@ -31,8 +31,8 @@ type setting struct {
 }
 
 type token struct {
-	user string `toml:"user"`
-	bot  string `toml:"bot"`
+	User string `toml:"user"`
+	Bot  string `toml:"bot"`
 }
 
 func init() {
@@ -45,7 +45,7 @@ func main() {
 	glog.Info("main()")
 
 	loadSetting()
-	api = slack.New(s.token.user)
+	api = slack.New(s.token.User)
 
 	userID, err := getUserID()
 	if err != nil {
@@ -98,7 +98,7 @@ func getFileList(userID string) {
 func postRainImg() {
 	glog.Info("postRainImg()")
 
-	botAPI := slack.New(s.token.bot)
+	botAPI := slack.New(s.token.Bot)
 	sendCh := make(chan slack.OutgoingMessage)
 	eventCh := make(chan slack.SlackEvent)
 
