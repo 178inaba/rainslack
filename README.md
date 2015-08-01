@@ -13,7 +13,7 @@ github.com/178inaba/rainimg
 
 ### run
 
-`$ docker run -itd --name name-rainslack tag/rainslack`
+`$ docker run -d --name name-rainslack tag/rainslack`
 
 ### see the log
 
