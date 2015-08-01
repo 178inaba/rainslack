@@ -9,7 +9,7 @@ github.com/178inaba/rainimg
 
 ### build
 
-`$ docker build --force-rm --no-cache --rm -t tag/rainslack .`
+`$ docker build --force-rm --no-cache -t tag/rainslack .`
 
 ### run
 
