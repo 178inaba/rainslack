@@ -75,16 +75,16 @@ func getUserID() (string, error) {
 	}
 
 	glog.Info("User: ", info.User)
-	glog.Info("UserId: ", info.UserId)
+	glog.Info("UserId: ", info.UserID)
 
-	return info.UserId, nil
+	return info.UserID, nil
 }
 
 func getFileList(userID string) {
 	glog.Info("getFileList()")
 
 	searchParam := slack.NewGetFilesParameters()
-	searchParam.UserId = userID
+	searchParam.User = userID
 
 	files, _, _ := api.GetFiles(searchParam)
 
@@ -110,7 +110,7 @@ func postRainImg() {
 
 	go ws.HandleIncomingEvents(eventCh)
 	go ws.Keepalive(20 * time.Second)
-	go func(ws *slack.SlackWS, sendCh <-chan slack.OutgoingMessage) {
+	go func(ws *slack.WS, sendCh <-chan slack.OutgoingMessage) {
 		for {
 			om := <-sendCh
 			ws.SendMessage(&om)
@@ -122,13 +122,13 @@ func postRainImg() {
 		switch event.Data.(type) {
 		case *slack.MessageEvent:
 			msg := event.Data.(*slack.MessageEvent)
-			glog.Info("channel id: ", msg.ChannelId)
+			glog.Info("channel: ", msg.Channel)
 			glog.Info("text: ", msg.Text)
 
 			match, _ := regexp.MatchString("雨", msg.Text)
 			if match {
 				f := rainImgUpload()
-				sendCh <- *ws.NewOutgoingMessage(f.URL, msg.ChannelId)
+				sendCh <- *ws.NewOutgoingMessage(f.URL, msg.Channel)
 			}
 		case slack.LatencyReport:
 			latency := event.Data.(slack.LatencyReport)
