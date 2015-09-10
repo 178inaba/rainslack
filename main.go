@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 	"regexp"
 	"sync"
-	"time"
 
 	"github.com/178inaba/rainimg"
 	"github.com/BurntSushi/toml"
@@ -20,7 +19,7 @@ const (
 
 var (
 	s   setting
-	api *slack.Slack
+	api *slack.Client
 	o   sync.Once
 
 	fileMap = make(map[string]slack.File)
@@ -98,27 +97,11 @@ func getFileList(userID string) {
 func postRainImg() {
 	glog.Info("postRainImg()")
 
-	botAPI := slack.New(s.token.Bot)
-	sendCh := make(chan slack.OutgoingMessage)
-	eventCh := make(chan slack.SlackEvent)
-
-	ws, err := botAPI.StartRTM("", "https://slack.com/")
-	if err != nil {
-		glog.Error(err)
-		return
-	}
-
-	go ws.HandleIncomingEvents(eventCh)
-	go ws.Keepalive(20 * time.Second)
-	go func(ws *slack.WS, sendCh <-chan slack.OutgoingMessage) {
-		for {
-			om := <-sendCh
-			ws.SendMessage(&om)
-		}
-	}(ws, sendCh)
+	rtm := slack.New(s.token.Bot).NewRTM()
+	go rtm.ManageConnection()
 
 	for {
-		event := <-eventCh
+		event := <-rtm.IncomingEvents
 		switch event.Data.(type) {
 		case *slack.MessageEvent:
 			msg := event.Data.(*slack.MessageEvent)
@@ -128,7 +111,7 @@ func postRainImg() {
 			match, _ := regexp.MatchString("雨", msg.Text)
 			if match {
 				f := rainImgUpload()
-				sendCh <- *ws.NewOutgoingMessage(f.URL, msg.Channel)
+				rtm.SendMessage(rtm.NewOutgoingMessage(f.URL, msg.Channel))
 			}
 		case slack.LatencyReport:
 			latency := event.Data.(slack.LatencyReport)
