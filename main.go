@@ -9,8 +9,9 @@ import (
 
 	"github.com/178inaba/rainimg"
 	"github.com/BurntSushi/toml"
-	"github.com/golang/glog"
 	"github.com/nlopes/slack"
+
+	log "github.com/Sirupsen/logrus"
 )
 
 const (
@@ -35,13 +36,13 @@ type token struct {
 }
 
 func init() {
-	glog.Info("init()")
+	log.Info("init()")
 
 	flag.Parse()
 }
 
 func main() {
-	glog.Info("main()")
+	log.Info("main()")
 
 	loadSetting()
 	api = slack.New(s.token.User)
@@ -56,46 +57,46 @@ func main() {
 }
 
 func loadSetting() {
-	glog.Info("loadSetting()")
+	log.Info("loadSetting()")
 
 	_, err := toml.DecodeFile(settingToml, &s)
 	if err != nil {
-		glog.Error("load error: ", err)
+		log.Error("load error: ", err)
 	}
 }
 
 func getUserID() (string, error) {
-	glog.Info("getUserID()")
+	log.Info("getUserID()")
 
 	info, err := api.AuthTest()
 	if err != nil {
-		glog.Error("AuthTest Error: ", err)
+		log.Error("AuthTest Error: ", err)
 		return "", err
 	}
 
-	glog.Info("User: ", info.User)
-	glog.Info("UserId: ", info.UserID)
+	log.Info("User: ", info.User)
+	log.Info("UserId: ", info.UserID)
 
 	return info.UserID, nil
 }
 
 func getFileList(userID string) {
-	glog.Info("getFileList()")
+	log.Info("getFileList()")
 
 	searchParam := slack.NewGetFilesParameters()
 	searchParam.User = userID
 
 	files, _, _ := api.GetFiles(searchParam)
 
-	glog.Info("filename list:")
+	log.Info("filename list:")
 	for _, file := range files {
 		fileMap[file.Name] = file
-		glog.Info(file.Name)
+		log.Info(file.Name)
 	}
 }
 
 func postRainImg() {
-	glog.Info("postRainImg()")
+	log.Info("postRainImg()")
 
 	rtm := slack.New(s.token.Bot).NewRTM()
 	go rtm.ManageConnection()
@@ -105,8 +106,8 @@ func postRainImg() {
 		switch event.Data.(type) {
 		case *slack.MessageEvent:
 			msg := event.Data.(*slack.MessageEvent)
-			glog.Info("channel: ", msg.Channel)
-			glog.Info("text: ", msg.Text)
+			log.Info("channel: ", msg.Channel)
+			log.Info("text: ", msg.Text)
 
 			match, _ := regexp.MatchString("雨", msg.Text)
 			if match {
@@ -115,13 +116,13 @@ func postRainImg() {
 			}
 		case slack.LatencyReport:
 			latency := event.Data.(slack.LatencyReport)
-			glog.Info("ping latency: ", latency.Value)
+			log.Info("ping latency: ", latency.Value)
 		}
 	}
 }
 
 func rainImgUpload() slack.File {
-	glog.Info("rainImgUpload()")
+	log.Info("rainImgUpload()")
 
 	// create image
 	fPath := rainimg.GetImgPath()
@@ -132,7 +133,7 @@ func rainImgUpload() slack.File {
 	// already uploaded check
 	file, ok := fileMap[fileName]
 	if ok {
-		glog.Info("already uploaded: ", file.Name)
+		log.Info("already uploaded: ", file.Name)
 		return file
 	}
 
@@ -142,7 +143,7 @@ func rainImgUpload() slack.File {
 
 	// upload
 	upFile, _ := api.UploadFile(fup)
-	glog.Info("upload file: ", upFile.Name)
+	log.Info("upload file: ", upFile.Name)
 
 	// add file list
 	fileMap[upFile.Name] = *upFile
